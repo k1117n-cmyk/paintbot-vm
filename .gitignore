@@ -5,6 +5,7 @@ __pycache__/
 /game/build/
 /treasure/build/
 /console/build/
+/maze/build/
 /incoming/
 /registered/
 /verification.log

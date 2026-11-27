@@ -35,6 +35,7 @@ with tempfile.TemporaryDirectory(prefix='console-device-test-') as directory:
     assert len(manifest) < 128 and archive.stat().st_size <= device.LIMIT
     assert all('/build/' not in name and 'registered' not in name for name in manifest)
     assert 'game/bot_runner.c' in manifest and 'treasure/bots/seeker-h.asm' in manifest
+    assert {'maze/maze.c', 'maze/Makefile', 'maze/test_maze.py'} <= manifest.keys()
     project = root/'project'
     assert device.unpack(archive, digest, project) == manifest
     device.verify_sources(project, manifest)
@@ -64,7 +65,7 @@ with tempfile.TemporaryDirectory(prefix='console-device-test-') as directory:
     before = device.registered_state(registered)
     (project/'registered').symlink_to(registered, target_is_directory=True)
     assert device.registered_state(registered) == before
-    for folder in ('vm', 'game', 'treasure', 'console'):
+    for folder in ('vm', 'game', 'treasure', 'maze', 'console'):
         result = subprocess.run(['make', '-C', folder], cwd=project, capture_output=True, timeout=30)
         assert result.returncode == 0, (folder, result.stdout, result.stderr)
     assert (project/'console/build/game-console').is_file()
@@ -85,9 +86,12 @@ with tempfile.TemporaryDirectory(prefix='console-device-test-') as directory:
     result = subprocess.run(['console/build/game-console'], cwd=project, input=b'2\nq\nq\n',
                             capture_output=True, timeout=3)
     assert result.returncode == 0 and b'Treasure - select bots' in result.stdout
+    result = subprocess.run(['console/build/game-console'], cwd=project, input=b'3\nqq\n',
+                            capture_output=True, timeout=3)
+    assert result.returncode == 0 and not result.stderr and b'Returned from Maze.' in result.stdout, result
     assert device.registered_state(registered) == before
     device.verify_sources(project, manifest)
     (project/'console/menu.c').write_text('changed')
     refused(lambda: device.verify_sources(project, manifest))
-    print('PASS isolated rebuild of all four components, both 200-turn games, menu, original registrations preserved and source recheck', flush=True)
+    print('PASS isolated rebuild of all five components, both 200-turn games, maze/menu round trip, original registrations preserved and source recheck', flush=True)
 print('PASS 3 device preparation groups, 0 failures', flush=True)

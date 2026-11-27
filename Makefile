@@ -4,6 +4,7 @@ all:
 	$(MAKE) -C vm
 	$(MAKE) -C game
 	$(MAKE) -C treasure
+	$(MAKE) -C maze
 	$(MAKE) -C console
 
 setup: all
@@ -22,4 +23,5 @@ test: all
 	$(MAKE) -C game test test-host test-display test-registry
 	python3 -B game/test_bot_mode.py
 	$(MAKE) -C treasure test
+	$(MAKE) -C maze test
 	$(MAKE) -C console test

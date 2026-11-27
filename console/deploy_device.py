@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def sources(root):
     selected = []
-    for folder in ('vm', 'treasure'):
+    for folder in ('vm', 'treasure', 'maze'):
         selected.extend(p for p in (root/folder).rglob('*') if p.is_file() and
                         not set(p.relative_to(root/folder).parts) & {'build', '__pycache__', '.git'} and
                         (p.suffix in {'.c', '.h', '.py', '.asm', '.md'} or p.name in {'Makefile', 'LICENSE'}))

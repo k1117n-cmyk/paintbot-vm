@@ -37,7 +37,7 @@ def unpack(archive, expected, destination):
                     and str(path) == name and '\\' not in name and name not in files,
                     'invalid/duplicate archive member: ' + name)
             require(name == 'MANIFEST.json' or (len(path.parts) >= 2 and
-                    path.parts[0] in ('vm', 'game', 'treasure', 'console') and
+                    path.parts[0] in ('vm', 'game', 'treasure', 'maze', 'console') and
                     not set(path.parts[1:]) & {'build', 'registered', '.git', '__pycache__'}),
                     'unexpected archive path: ' + name)
             total += member.size
@@ -79,7 +79,8 @@ def verify_sources(project, manifest):
 def run(args, project):
     print('$ ' + ' '.join(args), flush=True)
     subprocess.run(args, cwd=project, check=True, timeout=300,
-                   env={**os.environ, 'PYTHONUNBUFFERED': '1'})
+                   env={**os.environ, 'PYTHONUNBUFFERED': '1',
+                        'SYSTEMD_PAGER': 'cat', 'SYSTEMD_COLORS': '0'})
 
 
 def main():
@@ -105,11 +106,12 @@ def main():
     print('REGISTERED_BEFORE=' + json.dumps(before, sort_keys=True), flush=True)
     run(['systemctl', 'show', 'paintbot-menu.service', '-p', 'User', '-p', 'ExecStart',
          '-p', 'WorkingDirectory', '-p', 'DropInPaths', '-p', 'LogNamespace', '-p', 'ActiveState'], project)
-    for folder in ('vm', 'game', 'treasure', 'console'):
+    for folder in ('vm', 'game', 'treasure', 'maze', 'console'):
         run(['make', '-C', folder], project)
     run(['vm/build/handmade-vm', '--self-test'], project)
     run(['make', '-C', 'game', 'test', 'test-host', 'test-display'], project)
     run(['make', '-C', 'treasure', 'test'], project)
+    run(['make', '-C', 'maze', 'test'], project)
     run(['make', '-C', 'console', 'test'], project)
     run(['game/build/paint-bots', 'list'], project)
     verify_sources(project, manifest)
