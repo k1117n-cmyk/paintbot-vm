@@ -144,7 +144,7 @@ int main(int argc, char **argv) {
     char line[128], notice[100] = "";
     for (;;) {
         if (ansi) fputs("\033[0m\033[2J\033[H", stdout);
-        puts("VM Game Console\n\n1: Paintbot\n2: Treasure\n3: Maze\n\nq: Quit console");
+        puts("VM Game Console\n\n1: Paintbot\n2: Treasure\n3: Maze\n4: Dot Chase\n\nq: Quit console");
         puts("Press q in a game or bot menu to return here.");
         if (*notice) puts(notice);
         fputs("Games> ", stdout);
@@ -152,12 +152,20 @@ int main(int argc, char **argv) {
         int read_result = read_command(line);
         if (!read_result) return ferror(stdin) ? 1 : 0;
         if (read_result < 0) {
-            strcpy(notice, "Input too long. Choose 1, 2, 3 or q.");
+            strcpy(notice, "Input too long. Choose 1, 2, 3, 4 or q.");
             continue;
         }
         char *command = line;
         while (isspace((unsigned char)*command)) ++command;
         if (!strcmp(command, "q")) return 0;
+        if (!strcmp(command, "4")) {
+            char *args[] = {"vm/build/handmade-vm", "--game", "dotchase/build/dotchase.bin", NULL};
+            int result = launch(args);
+            if (result)
+                snprintf(notice, sizeof notice, "Dot Chase stopped (status %d). Check build and diagnostics.", result);
+            else strcpy(notice, "Returned from Dot Chase.");
+            continue;
+        }
         if (!strcmp(command, "3")) {
             char *args[] = {"maze/build/maze", NULL};
             int result = launch(args);
@@ -172,7 +180,7 @@ int main(int argc, char **argv) {
             continue;
         }
         if (strcmp(command, "1")) {
-            strcpy(notice, "Choose 1, 2, 3 or q.");
+            strcpy(notice, "Choose 1, 2, 3, 4 or q.");
             continue;
         }
         char *args[] = {"game/build/paint-bots", "menu", NULL};

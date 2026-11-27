@@ -71,8 +71,8 @@ with tempfile.TemporaryDirectory(prefix='console-menu-') as directory:
     for data in (b'q\n', b'', b'  q  \n'):
         out, err = run(root, data)
         assert out.count(b'VM Game Console') == 1 and not err
-    out, err = run(root, b'\n4\n1x\n' + b'1' * 1024 + b'\nq\n')
-    assert b'Input too long' in out and b'Choose 1, 2, 3 or q.' in out
+    out, err = run(root, b'\n5\n1x\n' + b'1' * 1024 + b'\nq\n')
+    assert b'Input too long' in out and b'Choose 1, 2, 3, 4 or q.' in out
     assert b'Paintbot stopped' not in out and not err
     print('PASS quit, EOF, whitespace, invalid choices and long-line draining', flush=True)
 
@@ -85,6 +85,11 @@ with tempfile.TemporaryDirectory(prefix='console-menu-') as directory:
     assert b'Maze stopped (status 127)' in out and b'maze/build/maze' in err
     assert out.count(b'VM Game Console') == 2
     print('PASS missing maze executable returns to game selection', flush=True)
+
+    out, err = run(root, b'4\nq\n')
+    assert b'Dot Chase stopped (status 127)' in out and b'vm/build/handmade-vm' in err
+    assert out.count(b'VM Game Console') == 2
+    print('PASS missing interactive VM returns to game selection', flush=True)
 
     child = root / 'game/build/paint-bots'
     child.parent.mkdir(parents=True)
@@ -255,4 +260,4 @@ with tempfile.TemporaryDirectory(prefix='console-real-') as directory:
     finally:
         terminal.close()
 print('PASS real VM: alternating full Paintbot/Treasure matches, both bot menus, re-entry and clean exit', flush=True)
-print('PASS 12 console groups, 0 failures', flush=True)
+print('PASS 13 console groups, 0 failures', flush=True)

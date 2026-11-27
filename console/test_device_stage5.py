@@ -36,6 +36,8 @@ with tempfile.TemporaryDirectory(prefix='console-device-test-') as directory:
     assert all('/build/' not in name and 'registered' not in name for name in manifest)
     assert 'game/bot_runner.c' in manifest and 'treasure/bots/seeker-h.asm' in manifest
     assert {'maze/maze.c', 'maze/Makefile', 'maze/test_maze.py'} <= manifest.keys()
+    assert {'dotchase/game.asm', 'dotchase/test_game.py', 'vm/notes/game_io.c',
+            'vm/notes/game_io.h', 'vm/test_game_io.py', 'vm/terminal_test.py'} <= manifest.keys()
     project = root/'project'
     assert device.unpack(archive, digest, project) == manifest
     device.verify_sources(project, manifest)
@@ -65,7 +67,7 @@ with tempfile.TemporaryDirectory(prefix='console-device-test-') as directory:
     before = device.registered_state(registered)
     (project/'registered').symlink_to(registered, target_is_directory=True)
     assert device.registered_state(registered) == before
-    for folder in ('vm', 'game', 'treasure', 'maze', 'console'):
+    for folder in ('vm', 'game', 'treasure', 'maze', 'dotchase', 'console'):
         result = subprocess.run(['make', '-C', folder], cwd=project, capture_output=True, timeout=30)
         assert result.returncode == 0, (folder, result.stdout, result.stderr)
     assert (project/'console/build/game-console').is_file()
@@ -89,9 +91,12 @@ with tempfile.TemporaryDirectory(prefix='console-device-test-') as directory:
     result = subprocess.run(['console/build/game-console'], cwd=project, input=b'3\nqq\n',
                             capture_output=True, timeout=3)
     assert result.returncode == 0 and not result.stderr and b'Returned from Maze.' in result.stdout, result
+    result = subprocess.run(['console/build/game-console'], cwd=project, input=b'4\nqq\n',
+                            capture_output=True, timeout=3)
+    assert result.returncode == 0 and not result.stderr and b'Returned from Dot Chase.' in result.stdout, result
     assert device.registered_state(registered) == before
     device.verify_sources(project, manifest)
     (project/'console/menu.c').write_text('changed')
     refused(lambda: device.verify_sources(project, manifest))
-    print('PASS isolated rebuild of all five components, both 200-turn games, maze/menu round trip, original registrations preserved and source recheck', flush=True)
+    print('PASS isolated rebuild of all six components, both 200-turn games, maze/Dot Chase menu round trips, original registrations preserved and source recheck', flush=True)
 print('PASS 3 device preparation groups, 0 failures', flush=True)

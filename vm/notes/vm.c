@@ -1,9 +1,11 @@
+#include "game_io.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 
 static bool bot_mode;
+static bool game_mode;
 
 #define MEMORY_SIZE (1024 * 1024)
 #define REGISTER_COUNT 8
@@ -93,7 +95,7 @@ static DecodedInst decode(uint32_t inst) {
 
 static bool fetch(VM *vm, uint32_t *inst) {
     if (vm->pc > MEMORY_SIZE - 4) {
-        fprintf(bot_mode ? stderr : stdout, "pc out of range: 0x%08X\n", vm->pc);
+        fprintf((bot_mode || game_mode) ? stderr : stdout, "pc out of range: 0x%08X\n", vm->pc);
         vm->running = false;
         return false;
     }
@@ -105,7 +107,7 @@ static bool fetch(VM *vm, uint32_t *inst) {
 
 static bool check_register(uint8_t reg) {
     if (reg >= REGISTER_COUNT) {
-        fprintf(bot_mode ? stderr : stdout, "invalid register: R%u\n", reg);
+        fprintf((bot_mode || game_mode) ? stderr : stdout, "invalid register: R%u\n", reg);
         return false;
     }
 
@@ -114,7 +116,7 @@ static bool check_register(uint8_t reg) {
 
 static bool check_register_pair(uint8_t rd, uint8_t rs) {
     if (rd >= REGISTER_COUNT || rs >= REGISTER_COUNT) {
-        fprintf(bot_mode ? stderr : stdout, "invalid register: rd=R%u rs=R%u\n", rd, rs);
+        fprintf((bot_mode || game_mode) ? stderr : stdout, "invalid register: rd=R%u rs=R%u\n", rd, rs);
         return false;
     }
 
@@ -123,7 +125,7 @@ static bool check_register_pair(uint8_t rd, uint8_t rs) {
 
 static bool check_u32_memory_range(uint32_t address) {
     if (address > MEMORY_SIZE - 4) {
-        fprintf(bot_mode ? stderr : stdout, "memory address out of range: 0x%08X\n", address);
+        fprintf((bot_mode || game_mode) ? stderr : stdout, "memory address out of range: 0x%08X\n", address);
         return false;
     }
 
@@ -132,7 +134,7 @@ static bool check_u32_memory_range(uint32_t address) {
 
 static bool check_jump_target(uint32_t address) {
     if (address > MEMORY_SIZE - 4) {
-        fprintf(bot_mode ? stderr : stdout, "jump target out of range: 0x%08X\n", address);
+        fprintf((bot_mode || game_mode) ? stderr : stdout, "jump target out of range: 0x%08X\n", address);
         return false;
     }
 
@@ -150,10 +152,10 @@ static void execute(VM *vm, DecodedInst inst) {
     if (inst.raw == 0x01000000) {
         vm->halted = true;
         vm->running = false;
-        fprintf(bot_mode ? stderr : stdout, "CPU halted.\n");
+        if (!game_mode) fprintf(bot_mode ? stderr : stdout, "CPU halted.\n");
     } else if (inst.raw == 0x02000000) {
         if (vm->sp > MEMORY_SIZE - 4) {
-            fprintf(bot_mode ? stderr : stdout, "stack underflow\n");
+            fprintf((bot_mode || game_mode) ? stderr : stdout, "stack underflow\n");
             vm->running = false;
         } else {
             uint32_t return_address = read_u32_be(vm->memory, vm->sp);
@@ -205,7 +207,7 @@ static void execute(VM *vm, DecodedInst inst) {
         if (!check_register_pair(inst.rd, inst.rs)) {
             vm->running = false;
         } else if (vm->regs[inst.rs] >= MEMORY_SIZE) {
-            fprintf(bot_mode ? stderr : stdout, "memory address out of range: 0x%08X\n", vm->regs[inst.rs]);
+            fprintf((bot_mode || game_mode) ? stderr : stdout, "memory address out of range: 0x%08X\n", vm->regs[inst.rs]);
             vm->running = false;
         } else {
             vm->regs[inst.rd] = vm->memory[vm->regs[inst.rs]];
@@ -214,7 +216,7 @@ static void execute(VM *vm, DecodedInst inst) {
         if (!check_register_pair(inst.rd, inst.rs)) {
             vm->running = false;
         } else if (vm->regs[inst.rd] >= MEMORY_SIZE) {
-            fprintf(bot_mode ? stderr : stdout, "memory address out of range: 0x%08X\n", vm->regs[inst.rd]);
+            fprintf((bot_mode || game_mode) ? stderr : stdout, "memory address out of range: 0x%08X\n", vm->regs[inst.rd]);
             vm->running = false;
         } else {
             vm->memory[vm->regs[inst.rd]] = vm->regs[inst.rs] & 0xFF;
@@ -251,15 +253,26 @@ static void execute(VM *vm, DecodedInst inst) {
             int ch = getchar();
 
             if (ch == EOF) {
-                fprintf(bot_mode ? stderr : stdout, "input EOF\n");
+                fprintf((bot_mode || game_mode) ? stderr : stdout, "input EOF\n");
                 vm->running = false;
             } else {
                 vm->regs[0] = (uint8_t)ch;
             }
         } else if (inst.imm == 3) {
             putchar(vm->regs[0] & 0xFF);
+        } else if (game_mode && inst.imm == 4) {
+            if (vm->regs[0] > MEMORY_SIZE - VM_FRAME_SIZE) {
+                fputs("VM game: frame address out of range\n", stderr);
+                vm->running = false;
+            } else if (!vm_game_frame(vm->memory + vm->regs[0])) {
+                vm->running = false;
+            }
+        } else if (game_mode && inst.imm == 5) {
+            if (!vm_game_key(&vm->regs[0])) vm->running = false;
+        } else if (game_mode && inst.imm == 6) {
+            if (!vm_game_wait(vm->regs[0])) vm->running = false;
         } else {
-            fprintf(bot_mode ? stderr : stdout, "unimplemented syscall: %u\n", inst.imm);
+            fprintf((bot_mode || game_mode) ? stderr : stdout, "unimplemented syscall: %u\n", inst.imm);
             vm->running = false;
         }
     } else if (inst.type == 6 && inst.op == 8) {
@@ -272,7 +285,7 @@ static void execute(VM *vm, DecodedInst inst) {
         if (!check_jump_target(inst.imm)) {
             vm->running = false;
         } else if (vm->sp < 4) {
-            fprintf(bot_mode ? stderr : stdout, "stack overflow\n");
+            fprintf((bot_mode || game_mode) ? stderr : stdout, "stack overflow\n");
             vm->running = false;
         } else {
             vm->sp -= 4;
@@ -299,7 +312,7 @@ static void execute(VM *vm, DecodedInst inst) {
         if (!check_register(inst.rd)) {
             vm->running = false;
         } else if (vm->sp < 4) {
-            fprintf(bot_mode ? stderr : stdout, "stack overflow\n");
+            fprintf((bot_mode || game_mode) ? stderr : stdout, "stack overflow\n");
             vm->running = false;
         } else {
             vm->sp -= 4;
@@ -309,20 +322,21 @@ static void execute(VM *vm, DecodedInst inst) {
         if (!check_register(inst.rd)) {
             vm->running = false;
         } else if (vm->sp > MEMORY_SIZE - 4) {
-            fprintf(bot_mode ? stderr : stdout, "stack underflow\n");
+            fprintf((bot_mode || game_mode) ? stderr : stdout, "stack underflow\n");
             vm->running = false;
         } else {
             vm->regs[inst.rd] = read_u32_be(vm->memory, vm->sp);
             vm->sp += 4;
         }
     } else {
-        fprintf(bot_mode ? stderr : stdout, "unknown instruction: %08X\n", inst.raw);
+        fprintf((bot_mode || game_mode) ? stderr : stdout, "unknown instruction: %08X\n", inst.raw);
         vm->running = false;
     }
 }
 
 static void run(VM *vm) {
     while (vm->running) {
+        if (game_mode && vm_game_signal()) return;
         uint32_t inst;
 
         if (!fetch(vm, &inst)) {
@@ -444,6 +458,20 @@ static void run_monitor(void) {
 int main(int argc, char **argv) {
     VM vm;
 
+    if (argc == 3 && strcmp(argv[1], "--game") == 0) {
+        game_mode = true;
+        init_vm(&vm);
+        if (!load_program_file(&vm, argv[2])) return 1;
+        if (!vm_game_open()) {
+            vm_game_close();
+            return 1;
+        }
+        run(&vm);
+        int signum = vm_game_signal();
+        bool restored = vm_game_close();
+        return signum ? 128 + signum : (vm.halted && restored ? 0 : 1);
+    }
+
     if (argc == 3 && strcmp(argv[1], "--bot") == 0) {
         bot_mode = true;
         init_vm(&vm);
@@ -455,7 +483,7 @@ int main(int argc, char **argv) {
     }
 
     if (argc > 2) {
-        fprintf(stderr, "usage: %s [--self-test|program.bin]\n", argv[0]);
+        fprintf(stderr, "usage: %s [--self-test|program.bin|--bot program.bin|--game program.bin]\n", argv[0]);
         return 1;
     }
 

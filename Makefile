@@ -5,6 +5,7 @@ all:
 	$(MAKE) -C game
 	$(MAKE) -C treasure
 	$(MAKE) -C maze
+	$(MAKE) -C dotchase
 	$(MAKE) -C console
 
 setup: all
@@ -24,4 +25,6 @@ test: all
 	python3 -B game/test_bot_mode.py
 	$(MAKE) -C treasure test
 	$(MAKE) -C maze test
+	python3 -B vm/test_game_io.py
+	$(MAKE) -C dotchase test
 	$(MAKE) -C console test

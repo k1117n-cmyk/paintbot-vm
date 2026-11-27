@@ -13,8 +13,8 @@ all: $(VM) $(ASM) $(PROGRAMS)
 $(BUILD):
 	mkdir -p $@
 
-$(VM): notes/vm.c | $(BUILD)
-	$(CC) $(CFLAGS) $< -o $@
+$(VM): notes/vm.c notes/game_io.c notes/game_io.h | $(BUILD)
+	$(CC) $(CFLAGS) notes/vm.c notes/game_io.c -o $@
 
 $(ASM): tools/small-asm.c | $(BUILD)
 	$(CC) $(CFLAGS) $< -o $@
