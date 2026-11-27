@@ -30,8 +30,8 @@ $(TEST): game.c game.h test_game.c | $(BUILD)
 test: $(TEST)
 	./$(TEST)
 
-$(HOST): host.c game.c game.h display.c display.h | $(BUILD)
-	$(CC) $(CFLAGS) game.c display.c host.c -o $@
+$(HOST): host.c game.c game.h display.c display.h bot_runner.c bot_runner.h | $(BUILD)
+	$(CC) $(CFLAGS) game.c display.c host.c bot_runner.c -o $@
 
 $(BUILD)/paint-bots: registry.c | $(BUILD)
 	$(CC) $(CFLAGS) registry.c -o $@
@@ -54,8 +54,8 @@ $(ASM): ../vm/tools/small-asm.c
 $(BUILD)/%.bin: bots/%.asm $(ASM) | $(BUILD)
 	$(ASM) $< $@
 
-$(BUILD)/test-host: test_host.c host.c game.c game.h display.c display.h | $(BUILD)
-	$(CC) $(CFLAGS) game.c display.c test_host.c -o $@
+$(BUILD)/test-host: test_host.c host.c game.c game.h display.c display.h bot_runner.c bot_runner.h | $(BUILD)
+	$(CC) $(CFLAGS) game.c display.c test_host.c bot_runner.c -o $@
 
 .PHONY: test-host
 test-host: $(BUILD)/test-host

@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 /vm/build/
 /game/build/
+/treasure/build/
+/console/build/
 /incoming/
 /registered/
 /verification.log

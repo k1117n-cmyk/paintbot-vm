@@ -6,13 +6,34 @@
 ![Tested on: macOS](https://img.shields.io/badge/Tested%20on-macOS-555555)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-自作VM上で動くボット同士が、16×16マスの盤面を塗り合う対戦ゲームです。
+自作VM上のボットが戦う「ペイント合戦」と「宝取り競争」を、共通メニューから選べるゲーム機です。
 C言語で実装したVM・アセンブラ・ゲームホストと、アセンブリで書いたボットを収録しています。
 Raspberry Pi Zero 2 W（Raspberry Pi OS Lite 32-bit）で動作を確認しています。
 macOSでもビルドして対戦を試せます。
 
 プレイヤーはボットのプログラムを作り、2〜4体を選んで対戦を観戦します。
 方向キーでボットを直接操作するゲームではありません。
+
+## 2本のゲームをメニューから選ぶ
+
+以下は取得したリポジトリの最上位フォルダーで実行します。
+
+```sh
+git clone https://github.com/k1117n-cmyk/paintbot-vm.git
+cd paintbot-vm
+make run
+```
+
+VM・両ゲーム・共通メニューをビルドし、VMセルフテストとペイント合戦の付属4体の初期登録を行ってからメニューを開きます。同名の登録済みボットは上書きしません。準備だけなら `make setup`、登録を行わずビルドだけなら `make` です。
+
+- `1: Paintbot`：登録済みのペイント合戦ボットから2〜4体を選択します。同じ登録名の重複参加はできません。
+- `2: Treasure`：宝取り競争の付属ボットから2〜4体を選択します。`1: seeker-h`、`2: seeker-v`、`3: right`、`4: wait`。同じ種類を複数選べます。2体戦は `1 2`、4体戦は `1 2 1 2` が例です。
+
+参加者を確認して `y` とEnterで開始します。試合後はEnterでボット選択へ、そこで `q` とEnterでゲーム選択へ戻ります。ゲーム選択での `q` はプログラム終了で、OSのシャットダウンは行いません。
+
+両ゲームとも16×16マス、2〜4体、200ターンです。宝取り競争では固定配置36個・合計52点の宝を集めます。移動後にそのマスに1体だけいれば宝を取得でき、重なっている間は取得を保留します。詳細は [宝取り競争の仕様](treasure/README.md) と [メニュー操作](console/README.md) を参照してください。
+
+ゲームのルールと表示はCのゲームホスト、ボットの判断はVMが担当します。両ゲームのVM起動・100ms期限・出力検証は `game/bot_runner.c`・`.h` を共用し、今回VM命令は追加していません。
 
 ## 解説記事
 
@@ -30,7 +51,7 @@ macOSでもビルドして対戦を試せます。
 通常の対戦には外部の描画ライブラリやPythonパッケージは必要ありません。
 自動起動やログ管理には、別途systemdを使います。
 
-## ビルドして対戦する
+## ペイント合戦を単独でビルドして対戦する
 
 ```sh
 git clone https://github.com/k1117n-cmyk/paintbot-vm.git
@@ -114,6 +135,11 @@ game/build/paint-bots menu
 - `vm/`：VM、アセンブラ、VM単体のサンプル
 - `game/`：ゲームホスト、端末表示、ボット登録・選択、テスト
 - `game/bots/`：ボットのアセンブリと生成スクリプト
+- `game/bot_runner.c`・`.h`：両ゲーム共通のVM実行処理
+- `treasure/`：宝取り競争、専用ボット、検証コード
+- `console/`：共通メニュー、検証コード、実機への配置・起動設定ツール
+- [ゲーム機の開発ロードマップ](game-console-roadmap.md)
+- [2ゲーム版の実機配置・自動起動・復元](console/DEVICE.md)
 - [ボットの転送・登録](game/REGISTRATION.md)
 - [選択画面と実機の自動起動](game/APPLIANCE.md)
 - [ログ・バックアップ・性能測定](game/MAINTENANCE.md)
@@ -122,11 +148,26 @@ game/build/paint-bots menu
 （ユーザー `pi`、配置先 `/home/pi/paintbot-vm`）を対象としています。
 別の環境では設定と管理スクリプトの確認・変更が必要です。
 まず上記の手動対戦で動作を確認してください。
+
+`game/` の自動起動手順は従来のペイント合戦単独構成を対象とします。2ゲーム版への切り替えは `console/DEVICE.md` を参照してください。`game/backup_appliance.py` は従来のペイント合戦の保守用で、共通メニューと宝取り競争を含む全体バックアップではありません。
 転送手順のSSH接続先 `pi@raspberrypi.local` は、利用する実機のユーザー名とホスト名に置き換えます。
 
 ## テスト
 
-ビルド後、リポジトリ直下で順に実行します。
+VM・両ゲーム・共通メニューをまとめて確認する場合は、リポジトリ直下で実行します。
+
+```sh
+make test
+```
+
+観戦を含むため数分かかります。実機用ツールは次の模擬検証で確認でき、SSHやサービス設定の変更は行いません。
+
+```sh
+python3 -B console/test_device_stage5.py
+python3 -B console/test_device_menu_service.py
+```
+
+ペイント合戦の個別テストは、ビルド後に次のように実行できます。
 
 ```sh
 make -C game test test-host test-display
